@@ -33,8 +33,8 @@ import numpy as np
 import pickle
 import os
 import sys
-sys.path.append("./data/")
-dataset_path = "./ct_2017010203_10_20/ct_2017010203_10_20_train.pkl"
+sys.path.append("./data/central_med/preprocessed/")
+dataset_path = "./data/central_med/preprocessed/ct_centralmed_train_track.pkl"
 import tensorflow as tf
 
 LAT_BINS = 200; LON_BINS = 300; SOG_BINS = 30; COG_BINS = 72
@@ -65,10 +65,10 @@ dirname = os.path.dirname(dataset_path)
 LAT, LON, SOG, COG, HEADING, ROT, NAV_STT, TIMESTAMP, MMSI = list(range(9))
 
 try:
-    with tf.gfile.Open(dataset_path, "rb") as f:
+    with tf.io.gfile.GFile(dataset_path, "rb") as f:
         Vs = pickle.load(f)
 except:
-    with tf.gfile.Open(dataset_path, "rb") as f:
+    with tf.io.gfile.GFile(dataset_path, "rb") as f:
         Vs = pickle.load(f, encoding = "latin1")
 
 data_dim = LAT_BINS + LON_BINS + SOG_BINS + COG_BINS

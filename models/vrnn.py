@@ -23,7 +23,7 @@ import sonnet as snt
 import tensorflow as tf
 
 
-class VRNNCell(snt.AbstractModule):
+class VRNNCell(snt.Module):
   """Implementation of a Variational Recurrent Neural Network (VRNN).
 
   Introduced in "A Recurrent Latent Variable Model for Sequential data"
@@ -243,7 +243,7 @@ class VRNNCell(snt.AbstractModule):
     return (logits_return, (new_rnn_state, latent_prior_encoded))
 
 
-_DEFAULT_INITIALIZERS = {"w": tf.contrib.layers.xavier_initializer(),
+_DEFAULT_INITIALIZERS = {"w": tf.keras.initializers.GlorotNormal(),
                          "b": tf.zeros_initializer()}
 
 

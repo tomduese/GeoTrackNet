@@ -14,7 +14,7 @@ try:
 except:
     pass
 sys.path.append("..")
-import utils
+from methods.utils import detectOutlier, interpolate
 import pickle
 import matplotlib.pyplot as plt
 import copy
@@ -29,24 +29,24 @@ import argparse
 def getConfig(args=sys.argv[1:]):
     parser = argparse.ArgumentParser(description="Parses command.")
     # ROI
-    parser.add_argument("--lat_min", type=float, default=47.5,
+    parser.add_argument("--lat_min", type=float, default=30.0,
                         help="Lat min.")
-    parser.add_argument("--lat_max", type=float, default=49.5,
+    parser.add_argument("--lat_max", type=float, default=39.0,
                         help="Lat max.")
-    parser.add_argument("--lon_min", type=float, default=-7.0,
+    parser.add_argument("--lon_min", type=float, default=10.0,
                         help="Lon min.")
-    parser.add_argument("--lon_max", type=float, default=-4.0,
+    parser.add_argument("--lon_max", type=float, default=21.0,
                         help="Lon max.")
      
     # File paths
     parser.add_argument("--dataset_dir", type=str, 
-                        default="/users/local/dnguyen/Datasets/AIS_datasets/mt314/aivdm/2017/",
+                        default="/home/tom/Dokumente/cmrcc/monitoring_bot/GeoTrackNet/data/central_med/",
                         help="Dir to dataset.")    
     parser.add_argument("--l_input_filepath", type=str, nargs='+',
-                        default=["ct_2017010203_10_20_test_track.pkl"],
+                        default=["ct_centralmed_valid_track.pkl"],
                         help="List of path to input files.")
     parser.add_argument("--output_filepath", type=str,
-                        default="./ct_2017010203_10_20/ct_2017010203_10_20_test.pkl",
+                        default="./data/central_med/preprocessed/ct_centralmed_valid_track.pkl",
                         help="Path to output file.")
     
     parser.add_argument("-v", "--verbose",dest='verbose',action='store_true', help="Verbose mode.")
@@ -179,7 +179,7 @@ tick = time.time()
 for k in  tqdm(list(voyages.keys())):
     track = voyages[k][:,[TIMESTAMP,LAT,LON,SOG]] # [Timestamp, Lat, Lon, Speed]
     try:
-        o_report, o_calcul = utils.detectOutlier(track, speed_max = 30)
+        o_report, o_calcul = detectOutlier(track, speed_max = 30)
         if o_report.all() or o_calcul.all():
             voyages.pop(k, None)
         else:
@@ -211,7 +211,7 @@ for k in tqdm(list(voyages.keys())):
     v = voyages[k]
     sampling_track = np.empty((0, 9))
     for t in range(int(v[0,TIMESTAMP]), int(v[-1,TIMESTAMP]), 300): # 5 min
-        tmp = utils.interpolate(t,v)
+        tmp = interpolate(t,v)
         if tmp is not None:
             sampling_track = np.vstack([sampling_track, tmp])
         else:

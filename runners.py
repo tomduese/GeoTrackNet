@@ -300,39 +300,40 @@ def run_train(config):
         else:
             return ll_per_seq, -ll_per_seq
 
+
     def create_graph():
         """Creates the training graph."""
-        global_step = tf.train.get_or_create_global_step()
+        global_step = tf.Variable(0, trainable=False, name='global_step')
         bound, loss = create_loss()
-        opt = tf.train.AdamOptimizer(config.learning_rate)
+        opt = tf.optimizers.Adam(learning_rate=config.learning_rate)
         grads = opt.compute_gradients(loss, var_list=tf.trainable_variables())
         train_op = opt.apply_gradients(grads, global_step=global_step)
         return bound, train_op, global_step
 
-    device = tf.train.replica_device_setter(ps_tasks=config.ps_tasks)
-    with tf.Graph().as_default():
-        if config.random_seed: tf.set_random_seed(config.random_seed)
-        with tf.device(device):
+    strategy = tf.distribute.MirroredStrategy()
+
+    with strategy.scope():
+        def train_step():
             bound, train_op, global_step = create_graph()
-            log_hook = create_logging_hook(global_step, bound)
-            start_training = not config.stagger_workers
-            with tf.train.MonitoredTrainingSession(master=config.master,
-                                                   is_chief=config.task == 0,
-                                                   hooks=[log_hook],
-                                                   checkpoint_dir=config.logdir,
-                                                   save_checkpoint_secs=120,
-                                                   save_summaries_steps=config.summarize_every,
-                                                   log_step_count_steps=config.summarize_every) as sess:
-                cur_step = -1
-                while True:
-                    if sess.should_stop() or cur_step > config.max_steps: break
-                    if config.task > 0 and not start_training:
-                        cur_step = sess.run(global_step)
-                        tf.logging.info("task %d not active yet, sleeping at step %d" %
-                            (config.task, cur_step))
-                        time.sleep(30)
-                        if cur_step >= config.task * 1000:
-                            start_training = True
-                    else:
-                        _, cur_step = sess.run([train_op, global_step])
-#                         _, cur_step = sess.run([train_op, global_step])
+            return bound, train_op, global_step
+
+        bound, train_op, global_step = strategy.run(train_step)
+
+        log_hook = create_logging_hook(global_step, bound)
+
+        config_proto = tf.compat.v1.ConfigProto()
+        config_proto.log_device_placement = False
+        config_proto.allow_soft_placement = True
+
+        with tf.compat.v1.Session() as sess:
+            cur_step = -1
+            while True:
+                if cur_step > config.max_steps:
+                    break
+                if sess.should_stop():
+                    break
+
+                _, cur_step = sess.run([train_op, global_step])
+                tf.print("Current step:", cur_step)
+
+                time.sleep(1)

@@ -138,7 +138,7 @@ def detectOutlier(track, speed_max = SPEED_MAX):
         # the ith diagonal
         _, _, d = geod.inv(track[:N-i,2],track[:N-i,1],
                            track[i:,2],track[i:,1])
-        delta_t = track[i:,0] - track[:N-i,0].astype(np.float)  
+        delta_t = track[i:,0] - track[:N-i,0].astype(float)  
         cond = np.logical_and(delta_t > 2,d/delta_t > (speed_max*0.514444))
         abnormal_idx = np.nonzero(cond)[0]
         A[abnormal_idx, abnormal_idx + i] = 1

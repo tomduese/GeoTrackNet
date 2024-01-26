@@ -46,7 +46,7 @@ from scipy import stats
 from tqdm import tqdm
 import csv
 from datetime import datetime
-import utils
+import methods.utils as utils
 import contrario_utils
 
 
@@ -68,10 +68,10 @@ LOGPROB_STD_MAX = 5
 
 if config.mode == "train":
     print(config.trainingset_path)
-    fh = logging.FileHandler(os.path.join(config.logdir,config.log_filename+".log"))
-    tf.logging.set_verbosity(tf.logging.INFO)
+    fh = logging.FileHandler(os.path.join(config.logdir, config.log_filename + ".log"))
+    tf.get_logger().setLevel(logging.INFO)
     # get TF logger
-    logger = logging.getLogger('tensorflow')
+    logger = tf.get_logger()
     logger.addHandler(fh)
     runners.run_train(config)
 

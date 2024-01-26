@@ -32,6 +32,9 @@ import os
 import tensorflow as tf
 import pickle
 import math
+import argparse
+
+
 
 
 ## Bretagne dataset
@@ -58,135 +61,129 @@ SPEED_MAX = 30.0  # knots
 FIG_DPI = 150
 
 # Shared flags.
-tf.app.flags.DEFINE_string("mode", "train",
-                           "The mode of the binary. Must be 'train'"
-                           "'save_logprob','local_logprob'"
-                           "'contrario_detection','visualisation'"
-                           "'traj_reconstruction' or 'traj_speed'.")
-
-tf.app.flags.DEFINE_string("bound", "elbo",
-                           "The bound to optimize. Can be 'elbo', or 'fivo'.")
-
-tf.app.flags.DEFINE_integer("latent_size", 64,
-                            "The size of the latent state of the model.")
-
-tf.app.flags.DEFINE_string("log_dir", "./chkpt",
-                           "The directory to keep checkpoints and summaries in.")
-
-tf.app.flags.DEFINE_integer("batch_size", 32,
-                            "Batch size.")
-tf.app.flags.DEFINE_integer("num_samples", 16,
-                           "The number of samples (or particles) for multisample "
-                           "algorithms.")
-tf.app.flags.DEFINE_float("ll_thresh", -17.47,
-                          "Log likelihood for the anomaly detection.")
-
-
-# Dataset flags
-tf.app.flags.DEFINE_string("dataset_dir", "./data",
-                           "Dataset directory")
-tf.app.flags.DEFINE_string("trainingset_name", "ct_aruba_2019/ct_aruba_2019_train.pkl",
-                           "Path to load the trainingset from.")
-tf.app.flags.DEFINE_string("testset_name", "ct_aruba_2019/ct_aruba_2019_test.pkl",
-                           "Path to load the testset from.")
-tf.app.flags.DEFINE_string("split", "train",
-                           "Split to evaluate the model on. Can be 'train', 'valid', or 'test'.")
-tf.app.flags.DEFINE_boolean("missing_data", False,
-                           "If true, a part of input track will be deleted.")
-
+parser = argparse.ArgumentParser(description='Description of your program')
+parser.add_argument('--mode', type=str, default='train',
+                    help="The mode of the binary. Must be 'train', "
+                         "'save_logprob', 'local_logprob', "
+                         "'contrario_detection', 'visualisation', "
+                         "'traj_reconstruction', or 'traj_speed'.")
 
 # Model flags
-tf.app.flags.DEFINE_string("model", "vrnn",
-                           "Model choice. Currently only 'vrnn' is supported.")
+parser.add_argument('--bound', type=str, default='elbo',
+                    help='The bound to optimize. Can be "elbo", or "fivo".')
+parser.add_argument('--latent_size', type=int, default=64,
+                    help='The size of the latent state of the model.')
+parser.add_argument('--log_dir', type=str, default='./chkpt',
+                    help='The directory to keep checkpoints and summaries in.')
 
-tf.app.flags.DEFINE_integer("random_seed", None,
-                            "A random seed for seeding the TensorFlow graph.")
+# Data and sampling flags
+parser.add_argument('--batch_size', type=int, default=32,
+                    help='Batch size.')
+parser.add_argument('--num_samples', type=int, default=16,
+                    help='The number of samples (or particles) for multisample algorithms.')
+parser.add_argument('--ll_thresh', type=float, default=-17.47,
+                    help='Log likelihood for anomaly detection.')
 
+# Dataset flags
+parser.add_argument('--dataset_dir', type=str, default='./data/central_med/preprocessed/',
+                    help='Dataset directory')
+parser.add_argument('--trainingset_name', type=str, default='ct_centralmed_train_track.pkl',
+                    help='Path to load the trainingset from.')
+parser.add_argument('--testset_name', type=str, default='ct_centralmed_valid_track.pkl',
+                    help='Path to load the testset from.')
+parser.add_argument('--split', type=str, default='train',
+                    help='Split to evaluate the model on. Can be "train", "valid", or "test".')
+parser.add_argument('--missing_data', type=bool, default=False,
+                    help='If true, a part of input track will be deleted.')
 
-# Track flags.
-tf.app.flags.DEFINE_float("interval_max", 2*3600,
-                          "Maximum interval between two successive AIS messages (in second).")
-tf.app.flags.DEFINE_integer("min_duration", 4,
-                            "Min duration (hour) of a vessel track")
-
-# Four-hot-encoding flags.
-tf.app.flags.DEFINE_float("lat_min", 11.0,
-                          "ROI")
-tf.app.flags.DEFINE_float("lat_max", 14.0,
-                          "ROI")
-tf.app.flags.DEFINE_float("lon_min", -71.0,
-                          "ROI")
-tf.app.flags.DEFINE_float("lon_max", -68.0,
-                          "ROI")
-tf.app.flags.DEFINE_float("onehot_lat_reso", 0.01,
-                          "Resolution of the lat one-hot vector (degree)")
-tf.app.flags.DEFINE_float("onehot_lon_reso",  0.01,
-                          "Resolution of the lat one-hot vector (degree)")
-tf.app.flags.DEFINE_float("onehot_sog_reso", 1,
-                          "Resolution of the SOG one-hot vector (knot)")
-tf.app.flags.DEFINE_float("onehot_cog_reso", 5,
-                          "Resolution of the COG one-hot vector (degree)")
-
-# A contrario detection flags.
-tf.app.flags.DEFINE_float("cell_lat_reso", 0.1,
-                          "Lat resolution of each small cell when applying local thresholding")
-tf.app.flags.DEFINE_float("cell_lon_reso",  0.1,
-                          "Lon nesolution of each small cell when applying local thresholding")
-
-tf.app.flags.DEFINE_float("contrario_eps", 1e-9,
-                          "A contrario eps.")
-tf.app.flags.DEFINE_boolean("print_log", False,
-                            "If true, print the current state of the program to screen.")
+# Model flags
+parser.add_argument('--model', type=str, default='vrnn',
+                    help='Model choice. Currently only "vrnn" is supported.')
+parser.add_argument('--random_seed', type=int, default=None,
+                    help='A random seed for seeding the TensorFlow graph.')
 
 
+# Track flags
+parser.add_argument('--interval_max', type=float, default=2*3600,
+                    help='Maximum interval between two successive AIS messages (in second).')
+parser.add_argument('--min_duration', type=int, default=4,
+                    help='Min duration (hour) of a vessel track')
 
-# Training flags.
+# Four-hot-encoding flags
+parser.add_argument("--lat_min", type=float, default=30.0,
+                    help="Lat min.")
+parser.add_argument("--lat_max", type=float, default=39.0,
+                    help="Lat max.")
+parser.add_argument("--lon_min", type=float, default=10.0,
+                    help="Lon min.")
+parser.add_argument("--lon_max", type=float, default=21.0,
+                    help="Lon max.")
+parser.add_argument('--onehot_lat_reso', type=float, default=0.01,
+                    help='Resolution of the lat one-hot vector (degree)')
+parser.add_argument('--onehot_lon_reso', type=float, default=0.01,
+                    help='Resolution of the lat one-hot vector (degree)')
+parser.add_argument('--onehot_sog_reso', type=float, default=1,
+                    help='Resolution of the SOG one-hot vector (knot)')
+parser.add_argument('--onehot_cog_reso', type=float, default=5,
+                    help='Resolution of the COG one-hot vector (degree)')
 
-tf.app.flags.DEFINE_boolean("normalize_by_seq_len", True,
-                            "If true, normalize the loss by the number of timesteps "
-                            "per sequence.")
-tf.app.flags.DEFINE_float("learning_rate", 0.0003,
-                          "The learning rate for ADAM.")
-tf.app.flags.DEFINE_integer("max_steps", int(80000),
-                            "The number of gradient update steps to train for.")
-tf.app.flags.DEFINE_integer("summarize_every", 100,
-                            "The number of steps between summaries.")
+# A contrario detection flags
+parser.add_argument('--cell_lat_reso', type=float, default=0.1,
+                    help='Lat resolution of each small cell when applying local thresholding')
+parser.add_argument('--cell_lon_reso', type=float, default=0.1,
+                    help='Lon resolution of each small cell when applying local thresholding')
+
+parser.add_argument('--contrario_eps', type=float, default=1e-9,
+                    help='A contrario eps.')
+parser.add_argument('--print_log', type=bool, default=False,
+                    help='If true, print the current state of the program to the screen.')
 
 
-# Distributed training flags.
-tf.app.flags.DEFINE_string("master", "",
-                           "The BNS name of the TensorFlow master to use.")
-tf.app.flags.DEFINE_integer("task", 0,
-                            "Task id of the replica running the training.")
-tf.app.flags.DEFINE_integer("ps_tasks", 0,
-                            "Number of tasks in the ps job. If 0 no ps job is used.")
-tf.app.flags.DEFINE_boolean("stagger_workers", True,
-                            "If true, bring one worker online every 1000 steps.")
+
+# Training flags
+parser.add_argument('--normalize_by_seq_len', type=bool, default=True,
+                    help='If true, normalize the loss by the number of timesteps per sequence.')
+parser.add_argument('--learning_rate', type=float, default=0.0003,
+                    help='The learning rate for ADAM.')
+parser.add_argument('--max_steps', type=int, default=80000,
+                    help='The number of gradient update steps to train for.')
+parser.add_argument('--summarize_every', type=int, default=100,
+                    help='The number of steps between summaries.')
+
+# Distributed training flags
+parser.add_argument('--master', type=str, default='',
+                    help='The BNS name of the TensorFlow master to use.')
+parser.add_argument('--task', type=int, default=0,
+                    help='Task id of the replica running the training.')
+parser.add_argument('--ps_tasks', type=int, default=0,
+                    help='Number of tasks in the ps job. If 0, no ps job is used.')
+parser.add_argument('--stagger_workers', type=bool, default=True,
+                    help='If true, bring one worker online every 1000 steps.')
+
 
 # Fix tf >=1.8.0 flags bug
-tf.app.flags.DEFINE_string('f', '', 'kernel')
-tf.app.flags.DEFINE_integer("data_dim", 0, "Data dimension")
-tf.app.flags.DEFINE_string('log_filename', '', 'Log filename')
-tf.app.flags.DEFINE_string('logdir_name', '', 'Log dir name')
-tf.app.flags.DEFINE_string('logdir', '', 'Log directory')
-tf.app.flags.DEFINE_string('trainingset_path', '', 'Training set path')
-tf.app.flags.DEFINE_string('testset_path', '', 'Test set path')
-tf.app.flags.DEFINE_integer("onehot_lat_bins", 0,
-                          "Number of equal-width bins of the lat one-hot vector (degree)")
-tf.app.flags.DEFINE_integer("onehot_lon_bins",  0,
-                          "Number of equal-width bins the lat one-hot vector (degree)")
-tf.app.flags.DEFINE_integer("onehot_sog_bins", 1,
-                          "Number of equal-width bins the SOG one-hot vector (knot)")
-tf.app.flags.DEFINE_integer("onehot_cog_bins", 5,
-                          "Number of equal-width bins of the COG one-hot vector (degree)")
-tf.app.flags.DEFINE_integer("n_lat_cells", 0,
-                          "Number of lat cells")
-tf.app.flags.DEFINE_integer("n_lon_cells",  0,
-                          "Number of lon cells")
+parser.add_argument('--f', type=str, default='', help='Kernel')
+parser.add_argument('--data_dim', type=int, default=0, help='Data dimension')
+parser.add_argument('--log_filename', type=str, default='', help='Log filename')
+parser.add_argument('--logdir_name', type=str, default='', help='Log dir name')
+parser.add_argument('--logdir', type=str, default='', help='Log directory')
+parser.add_argument('--trainingset_path', type=str, default='', help='Training set path')
+parser.add_argument('--testset_path', type=str, default='', help='Test set path')
 
 
-FLAGS = tf.app.flags.FLAGS
-config = FLAGS
+
+parser.add_argument('--onehot_lon_bins', type=int, default=0,
+                    help='Number of equal-width bins for the lat one-hot vector (degree)')
+parser.add_argument('--onehot_sog_bins', type=int, default=1,
+                    help='Number of equal-width bins for the SOG one-hot vector (knot)')
+parser.add_argument('--onehot_cog_bins', type=int, default=5,
+                    help='Number of equal-width bins for the COG one-hot vector (degree)')
+parser.add_argument('--n_lat_cells', type=int, default=0,
+                    help='Number of lat cells')
+parser.add_argument('--n_lon_cells', type=int, default=0,
+                    help='Number of lon cells')
+
+config = parser.parse_args()
 
 
 ## CONFIGS

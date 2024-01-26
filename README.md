@@ -6,6 +6,13 @@ TensorFlow implementation of the model proposed in "A Multi-Task Deep Learning A
 All the codes related to the Embedding block are adapted from the source code of Filtering Variational Objectives:
 https://github.com/tensorflow/models/tree/master/research/fivo
 
+## Installation
+```shell
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
 
 #### Directory Structure
 The elements of the code are organized as follows:
@@ -58,17 +65,17 @@ First we must train the Embedding layer:
 ```
 python geotracknet.py \
   --mode=train \
-  --dataset_dir=./data \
-  --trainingset_name=ct_2017010203_10_20/ct_2017010203_10_20_train.pkl \
-  --testset_name=ct_2017010203_10_20/ct_2017010203_10_20_valid.pkl \
-  --lat_min=47.5 \
-  --lat_max=49.5 \
-  --lon_min=-7.0 \
-  --lon_max=-4.0 \
+  --dataset_dir=./data/central_med/preprocessed/ \
+  --trainingset_name=ct_centralmed_train_track.pkl \
+  --testset_name=ct_centralmed_valid_track.pkl \
+  --lat_min=30.0 \
+  --lat_max=39.0 \
+  --lon_min=10.0 \
+  --lon_max=21.0 \
   --latent_size=100 \
   --batch_size=32 \
   --num_samples=16 \
-  --learning_rate=0.0003 \
+  --learning_rate=0.0003
 ```
 
 A model trained on the dataset comprising AIS messages of cargo and tanker vessels, from January 01 to March 10, 2017 can be found at `chkpt/elbo-ct_2017010203_10_20_train.pkl-data_dim-602-latent_size-100-batch_size-50.zip`.
